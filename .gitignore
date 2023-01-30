@@ -1,8 +1,8 @@
 # Ignore Mac system files
 .DS_store
 
-# Ignore Python Cache
-__pycache__
+# Ignore Python Caches
+**__pycache__
 
 # Ignore the data folder
 data
