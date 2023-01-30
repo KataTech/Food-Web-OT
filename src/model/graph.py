@@ -128,5 +128,11 @@ class GraphOT:
         """
         return np.copy(self.cost)
 
+    def extract_info(self): 
+        """
+        Returns the graph's node distribution AND cost matrix
+        """
+        return np.copy(self.node_dist), np.copy(self.cost)
+
     # TODO: Need to add functionalities to save and load GraphOT objects
         
