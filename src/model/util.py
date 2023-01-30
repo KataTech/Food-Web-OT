@@ -6,17 +6,14 @@ related to this project.
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sys, os, pickle, time
-sys.path.insert(0, '../')
-from constants import SCRATCH_PATH, SNS_CMAP
+import os, pickle, time
 from model.graph import GraphOT
 from model.ot_gromov import entropic_gw
 
-SCRATCH_PATH = "../" + SCRATCH_PATH
-
+SNS_CMAP = "BuPu"
 
 def vis_transport(T, title=None, percent=True, 
-                    cmap=SNS_CMAP, save_fig=False, save_path=SCRATCH_PATH): 
+                    cmap=SNS_CMAP, save_fig=False, save_path=None): 
     """
     Visualize the supplied optimal transport matrix. 
 
@@ -36,7 +33,7 @@ def vis_transport(T, title=None, percent=True,
         If True, save the output heatmap to `save_path` location. Otherwise, 
         display the plot.
     save_path : string
-        Location to store the output figure
+        Location to store the output figure. If None, store current directory.
 
     Returns
     -------
@@ -59,11 +56,14 @@ def vis_transport(T, title=None, percent=True,
     # save the figure if appropriate
     if save_fig:
         vis_title = title if title is not None else "scratch"
-        vis_title = os.join(save_path, vis_title + ".png")
+        if save_path is None: 
+            vis_title = vis_title + ".png"
+        else: 
+            vis_title = os.path.join(save_path, vis_title + ".png")
         plt.savefig(vis_title)
 
 def gwd_growth_experiment(generator, base_sizes, step, numComparison, title, colors, iter=10,
-                      verbose=False, save_transport=False, save_fig=False, save_log=False, save_path=SCRATCH_PATH):
+                      verbose=False, save_transport=False, save_fig=False, save_log=False, save_path=None):
     """
     Run an experiment for gromov-wasserstein distance growth between graphs of varying sizes. 
 
@@ -96,9 +96,9 @@ def gwd_growth_experiment(generator, base_sizes, step, numComparison, title, col
     save_fig : bool 
         Whether or not to save the output visualization
     save_log : bool
-        
+        Whether or not to save the log dictionary
     save_path : str
-        The path for saving objects. 
+        The path for saving objects. If none, store in current directory.
     
 
     Returns
@@ -186,10 +186,14 @@ def gwd_growth_experiment(generator, base_sizes, step, numComparison, title, col
     # display the label for each plot
     plt.legend()
     # store the results
-    if save_fig: 
-        plt.savefig(save_path + "/" + title.replace(" ", "_") + ".png")
+    if save_path is None: 
+        save_path = title.replace(" ", "_")
+    else: 
+        save_path = os.path.join(save_path, title.replace(" ", "_"))
+    if save_fig:
+        plt.savefig(save_path + ".png")
     if save_log: 
-        filename_pkl = save_path + "/" + title.replace(" ", "_") + "_log.pkl"
+        filename_pkl = save_path + "_log.pkl"
         with open(filename_pkl, 'wb') as f:
             pickle.dump(log, f)
     # output the log information
