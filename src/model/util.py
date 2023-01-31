@@ -7,12 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os, pickle, time
-from model.graph import GraphOT
-from model.ot_gromov import entropic_gw
+from .graph import GraphOT
+from .ot_gromov import entropic_gw
 
 SNS_CMAP = "BuPu"
 
-def vis_transport(T, title=None, percent=True, 
+def vis_transport(T, title=None, percent=True, annot=False, ratio=None,
                     cmap=SNS_CMAP, save_fig=False, save_path=None): 
     """
     Visualize the supplied optimal transport matrix. 
@@ -27,6 +27,10 @@ def vis_transport(T, title=None, percent=True,
         If True, scale the heatmap entries by the percentage of mass transported 
         from point s in S to point t in T relative to the total mass 
         at point s. Otherwise, just output the transport values as provided. 
+    annot : bool
+        If True, annotate the heatmap. 
+    ratio : tuple
+        The plot size or ratio
     cmap : string
         Color map for heatmap
     save_fig : boolean
@@ -40,9 +44,10 @@ def vis_transport(T, title=None, percent=True,
     None
     """
     # compute optimal ratio of the heatmap based on T dimensions
-    n_rows, n_cols = T.shape
-    ratio = (n_rows / (n_rows + n_cols), n_cols / (n_rows + n_cols))
-    ratio = (round(10 * ratio[1]), round(10 * ratio[0]))
+    if ratio is None: 
+        n_rows, n_cols = T.shape
+        ratio = (n_rows / (n_rows + n_cols), n_cols / (n_rows + n_cols))
+        ratio = (round(10 * ratio[1]), round(10 * ratio[0]))
     # if percent is True, transform T to display percentage mass transfers
     if percent: 
         T = (T.T / np.sum(T, axis=1)).T
@@ -50,7 +55,7 @@ def vis_transport(T, title=None, percent=True,
     T = np.round(T, decimals=2)
     # compute plot based on output mode implied by `save_fig`
     plt.figure(figsize=ratio)
-    vis = sns.heatmap(T, cmap=cmap, annot=True)
+    vis = sns.heatmap(T, cmap=cmap, annot=annot)
     if title is not None: 
         vis.set_title(title)
     # save the figure if appropriate
