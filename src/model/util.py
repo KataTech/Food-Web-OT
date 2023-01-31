@@ -63,7 +63,8 @@ def vis_transport(T, title=None, percent=True,
         plt.savefig(vis_title)
 
 def gwd_growth_experiment(generator, base_sizes, step, numComparison, title, colors, iter=10,
-                      verbose=False, save_transport=False, save_fig=False, save_log=False, save_path=None):
+                            verbose=False, random_init=True, save_transport=False, 
+                            save_fig=False, save_log=False, save_path=None):
     """
     Run an experiment for gromov-wasserstein distance growth between graphs of varying sizes. 
 
@@ -91,6 +92,8 @@ def gwd_growth_experiment(generator, base_sizes, step, numComparison, title, col
         1: Elapsed Time
         2: Elapsed Time + Progression Bar
         3: Elapsed Time + Progression Bar + Convergence Warnings
+    random_init : bool
+        Whether the entropic gromov-wasserstein starts at a random transport matrix
     save_transport : bool 
         Whether or not to save the transport matrices 
     save_fig : bool 
@@ -153,9 +156,9 @@ def gwd_growth_experiment(generator, base_sizes, step, numComparison, title, col
                 best_trans = None
             # compute gromov-wasserstein distance for `iter` times under random initialization
             for j in range(iter): 
-                gw_dist, trans, conv = entropic_gw(cost_s, cost_t, p_s, p_t, random_init=True, sinkhorn_warn=False)
+                gw_dist, trans, conv = entropic_gw(cost_s, cost_t, p_s, p_t, random_init=random_init, sinkhorn_warn=False)
                 if verbose == 3 and not conv: 
-                    print(f"WARNING: {(base_graph, alt_graph)} failed to converge at iteration j")
+                    print(f"WARNING: {(base_graph, alt_graph)} failed to converge at iteration {j}")
                 d_gw.append(gw_dist)
                 if save_transport and gw_dist < best_gwd:
                     best_trans = trans
