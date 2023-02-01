@@ -56,8 +56,21 @@ def base_initialization():
     with open(filename_pkl, 'wb') as f:
         pickle.dump(location2graph, f)
 
+def biome_initialization():
+    """
+    Retrieve biome information from the food webs
+    """
+    biome_df = pd.read_csv("data/Biome.csv")
+    loc2biome = {}
+    for name in biome_df.Community: 
+        loc2biome[name] = biome_df[biome_df.Community == name].WWF_MHTNAM.values[0]
+    # save the name2biome dict
+    with open("data/processed/foodweb_loc2biome.pkl", 'wb') as f:
+        pickle.dump(loc2biome, f)
+
 if __name__ == "__main__": 
     base_initialization()
+    biome_initialization()
 
     
 
