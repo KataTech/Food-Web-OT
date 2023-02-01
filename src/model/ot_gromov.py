@@ -6,7 +6,7 @@ import numpy as np
 from ot.bregman import sinkhorn_log
 from ot.utils import list_to_array
 from ot.backend import get_backend
-from ot.gromov import gwggrad, gwloss, init_matrix
+from ot.gromov import gwggrad, gwloss, init_matrix, update_square_loss, update_kl_loss, check_random_state, dist
 
 
 def entropic_gw(C1, C2, p, q, loss_fun="square_loss", epsilon=0.01, max_iter=1000, tol=1e-9, verbose=False, 
@@ -111,3 +111,104 @@ def entropic_gw(C1, C2, p, q, loss_fun="square_loss", epsilon=0.01, max_iter=100
     gw_dist = gwloss(constC, hC1, hC2, T)
     converged = cpt != max_iter
     return gw_dist, T, converged
+
+# def entropic_baycenter(N, Cs, ps, p, lambdas, loss_fun="square_loss", epsilon=0.01,
+#                        max_iter=1000, tol=1e-9, verbose=False, log=False, init_C=None, random_state=None):
+#     r"""
+#     Returns the gromov-wasserstein barycenters of `S` measured similarity matrices
+
+#     Parameters
+#     ----------
+#     N : int
+#         Size of the targeted barycenter
+#     Cs : list of S array-like of shape (ns, ns)
+#         Metric cost matrices
+#     ps : list of S array-like of shape (ns,)
+#         Sample weights in the `S` spaces
+#     p : array-like, shape (N,)
+#         Weights in the targeted barycenter
+#     lambdas : list of float
+#         List of the `S` spaces' weights
+#     loss_fun : callable
+#         tensor-matrix multiplication function based on specific loss function
+#     epsilon : float
+#         Regularization term > 0
+#     update : callable
+#         function(:math:`\mathbf{p}`, lambdas, :math:`\mathbf{T}`, :math:`\mathbf{Cs}`) that updates
+#         :math:`\mathbf{C}` according to a specific Kernel with the `S` :math:`\mathbf{T}_s` couplings
+#         calculated at each iteration
+#     max_iter : int, optional
+#         Max number of iterations
+#     tol : float, optional
+#         Stop threshold on error (>0).
+#     verbose : bool, optional
+#         Print information along iterations.
+#     log : bool, optional
+#         Record log if True.
+#     init_C : bool | array-like, shape(N,N)
+#         Random initial value for the :math:`\mathbf{C}` matrix provided by user.
+#     random_state : int or RandomState instance, optional
+#         Fix the seed for reproducibility
+
+#     Returns
+#     -------
+#     C : array-like, shape (`N`, `N`)
+#         Similarity matrix in the barycenter space (permutated arbitrarily)
+#     log : dict
+#         Log dictionary of error during iterations. Return only if `log=True` in parameters.
+
+#     References
+#     ----------
+#     .. [12] Gabriel Peyré, Marco Cuturi, and Justin Solomon,
+#         "Gromov-Wasserstein averaging of kernel and distance matrices."
+#         International Conference on Machine Learning (ICML). 2016.
+
+#     """
+#     Cs = list_to_array(*Cs)
+#     ps = list_to_array(*ps)
+#     p = list_to_array(p)
+#     nx = get_backend(*Cs, *ps, p)
+#     S = len(Cs)
+
+#     # Initialization of C : random SPD matrix (if not provided by user)
+#     if init_C is None:
+#         generator = check_random_state(random_state)
+#         xalea = generator.randn(N, 2)
+#         C = dist(xalea, xalea)
+#         C /= C.max()
+#         C = nx.from_numpy(C, type_as=p)
+#     else:
+#         C = init_C
+
+#     cpt = 0
+#     err = 1
+
+#     error = []
+
+#     while (err > tol) and (cpt < max_iter):
+#         Cprev = C
+#         T = [entropic_gw(Cs[s], C, ps[s], p, loss_fun, epsilon, max_iter, 1e-4, verbose, random_init=True, sinkhorn_warn=False) for s in range(S)]
+#         if loss_fun == 'square_loss':
+#             C = update_square_loss(p, lambdas, T, Cs)
+
+#         elif loss_fun == 'kl_loss':
+#             C = update_kl_loss(p, lambdas, T, Cs)
+
+#         if cpt % 10 == 0:
+#             # we can speed up the process by checking for the error only all
+#             # the 10th iterations
+#             err = nx.norm(C - Cprev)
+#             error.append(err)
+
+#             if verbose:
+#                 if cpt % 200 == 0:
+#                     print('{:5s}|{:12s}'.format(
+#                         'It.', 'Err') + '\n' + '-' * 19)
+#                 print('{:5d}|{:8e}|'.format(cpt, err))
+
+#         cpt += 1
+
+#     if log:
+#         return C, {"err": error}
+#     else:
+#         return C

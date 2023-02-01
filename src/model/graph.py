@@ -27,12 +27,16 @@ class GraphOT:
         graph : nx.Graph
             The networkx object representing the 
 
-        prob_method : string
+        prob_method : str
             The method to use for endowing the nodes with a probability 
             distibution. Acceptable strings are "uniform" and "degree". 
             If "uniform", then every node will receive the same, normalized
             value. If "degree", then every node will received a value 
             proportional to how many neighbors it has in the graph, normalized. 
+
+        cost_method : str
+            The method to use for computing the relational cost in the graph 
+            space. Acceptable strings are "adjacency" and "shortest_path". 
         """
         self.graph = nx.convert_node_labels_to_integers(graph, label_attribute="name")
         self.node_dist = self.compute_prob(prob_method)
@@ -84,7 +88,7 @@ class GraphOT:
         print("Warning: Non-identifiable probability method.")
         return self.compute_prob("uniform")
 
-    def compute_cost(self, cost_method: str, check_metric=False) -> np.ndarray: 
+    def compute_cost(self, cost_method: str, check_metric=False, no_inf=True) -> np.ndarray: 
         """
         Compute the relational cost matrix according to the outlined method
 
@@ -117,11 +121,15 @@ class GraphOT:
         elif cost_method == "shortest_path": 
             # floyd_warshall is a shortest path method that 
             # works on graphs with negative edges 
-            return nx.floyd_warshall_numpy(self.graph)
+            c = nx.floyd_warshall_numpy(self.graph)
+            masked_c = np.ma.array(c, mask=~np.isfinite(c))
+            if no_inf: 
+                c[c == np.inf] = 2 * np.max(masked_c)
+            return c
         
         # if `cost_method` is not anticipated, return the shortest_path method result
         print("Warning: Non-identifiable cost method.")
-        return self.compute_cost("shortest_path")
+        return self.compute_cost("shortest_path", no_inf)
 
     def get_node_dist(self):
         """
@@ -147,7 +155,7 @@ class GraphOT_Factory:
     neat operations such as compute the GW_Barycenter of a set of OT graphs
     """
 
-    def __init__(self, name2graph: dict):
+    def __init__(self, name2graph: dict, prob_method="degree", cost_method="shortest_path"):
         """
         Initialzies an instance of GraphOT factory. 
 
@@ -155,12 +163,26 @@ class GraphOT_Factory:
         ----------
         name2graph : dict : str -> nx.Graph
             A mapping from graph names to the networkX objects
+
+        prob_method : str
+            The method to use for endowing the nodes with a probability 
+            distibution. Acceptable strings are "uniform" and "degree". 
+            If "uniform", then every node will receive the same, normalized
+            value. If "degree", then every node will received a value 
+            proportional to how many neighbors it has in the graph, normalized. 
+
+        cost_method : str
+            The method to use for computing the relational cost in the graph 
+            space. Acceptable strings are "adjacency" and "shortest_path".
         
         """ 
         self.factory = name2graph
-        self.ot_factory = self.make(name2graph)
+        self.ot_factory = self.make(name2graph, prob_method, cost_method)
+        self.names = list(name2graph.keys())
+        self.names.sort()
+        self.num_graphs = len(name2graph)
 
-    def make(self, name2graph):
+    def make(self, name2graph, prob_method, cost_method):
         """
         Make a dictionary of GraphOT objects
 
@@ -168,10 +190,21 @@ class GraphOT_Factory:
         ----------
         name2graph : dict : str -> nx.Graph
             A mapping from graph names to the networkX objects
+
+        prob_method : str
+            The method to use for endowing the nodes with a probability 
+            distibution. Acceptable strings are "uniform" and "degree". 
+            If "uniform", then every node will receive the same, normalized
+            value. If "degree", then every node will received a value 
+            proportional to how many neighbors it has in the graph, normalized. 
+            
+        cost_method : str
+            The method to use for computing the relational cost in the graph 
+            space. Acceptable strings are "adjacency" and "shortest_path".
         """ 
         ot_factory = {}
         for name, nx_graph in name2graph.items(): 
-            ot_factory[name] = GraphOT(nx_graph)
+            ot_factory[name] = GraphOT(nx_graph, prob_method, cost_method)
         return ot_factory
     
     def save(self, save_path: str): 
@@ -333,4 +366,72 @@ class GraphOT_Factory:
     # some function by which to filter, some function by which to 
     # retrieve certain variable values from the GraphOT / NetworkX,
     # the type of objects to filter by, and outputs a new GraphOT_Factory
+
+    def get_probs(self) -> list: 
+        """
+        Returns the probability of each GraphOT object in the factory
+        """
+        probs = []
+        for name in self.names: 
+            probs.append(self.ot_factory[name].get_node_dist())
+        return probs
+
+    def get_costs(self) -> list: 
+        """
+        Returns the cost matrix of each GraphOT object in the factory
+        """
+        costs = []
+        for name in self.names: 
+            costs.append(self.ot_factory[name].get_cost())
+        return costs
+
+    # # TODO: Fix the barycenter implementation
+    # def barycenter(self, size: int, epsilon=0.01, mode="GW", save=False, save_path=None, sample:int=None):
+    #     """
+    #     Compute the barycenter of the current GraphOT_Factory
+
+    #     Parameters
+    #     ----------
+    #     size : int
+    #         The size of the barycenter graph
+    #     epsilon : float
+    #         The regularization constant for entropic-barycenter 
+    #         computations.
+    #     mode : str
+    #         The type of barycenter to compute. Valid strings are 
+    #         "GW" and "FGW" which correspond to gromov-wasserstein 
+    #         and fused gromov-wasserstein respectively
+    #     save : bool 
+    #         Whether to save the computed instances of the 
+    #         summary call
+    #     save_path : str
+    #         The path for saving the computed barycenter
+    #     sample : int 
+    #         If not None, then sample a subset of the samples to work with
+
+    #     Returns 
+    #     ----------
+    #     barycenter : array-like, shape (`N`, `N`)
+    #         The similarity matrix in the barycenter space. 
+    #     """ 
+
+    #     if sample is not None: 
+    #         random_dict = dict(random.sample(self.factory.items(), sample))
+    #         random_factory = GraphOT_Factory(random_dict)
+    #         random_factory.save("scratch/random_factory.pkl")
+    #         return random_factory.barycenter(size, save=save, save_path=save_path)
+
+    #     if mode == "GW": 
+    #         probs = self.get_probs()
+    #         costs = self.get_costs()
+    #         weight_baryc = np.array([np.ones(size) / size]).ravel()
+    #         weight_graph = np.array([np.ones(self.num_graphs) / self.num_graphs]).ravel()
+    #         bary = entropic_baycenter(size, costs, probs, weight_baryc, weight_graph, epsilon=epsilon)
+    #         # bary = gromov_barycenters(self.num_graphs, costs, probs, weight_baryc, weight_graph, epsilon)
+    #     if save and save_path is not None: 
+    #         with open(save_path, "wb") as f: 
+    #             pickle.dump(bary, f)
+    #     return bary
+
+       
             
