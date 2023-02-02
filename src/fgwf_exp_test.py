@@ -45,7 +45,7 @@ for i in range(250):
     graph_dict[i] = nx.cycle_graph(np.random.randint(low=10, high=50))
     labels.append(0)
 for j in range(250): 
-    graph_dict[j + 25] = nx.star_graph(np.random.randint(low=10, high=50))
+    graph_dict[j + 250] = nx.star_graph(np.random.randint(low=10, high=50))
     labels.append(1)
 graph_factory = GraphOT_Factory(graph_dict, cost_method="adjacency")
 graph_factory.save("scratch/exp_graph_fact.pkl")
