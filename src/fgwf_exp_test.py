@@ -24,7 +24,7 @@ data_path = "data/processed"
 
 # TODO: SET MODEL PARAMETERS
 num_atoms = 20
-size_atoms = num_atoms * [np.random.randint(20, 100)]
+size_atoms = np.random.randint(20, 100, num_atoms)
 print(f"Atom Sizes: {size_atoms}")
 ot_method = 'ppa'       # either `ppa` or `b-admm`
 gamma = 1e-1            

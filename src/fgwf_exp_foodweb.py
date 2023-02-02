@@ -22,7 +22,7 @@ NAME = "food_web"
 
 # TODO: SET MODEL PARAMETERS
 num_atoms = 50
-size_atoms = num_atoms * [np.random.randint(20, 70)]
+size_atoms = np.random.randint(20, 70, num_atoms)
 print(f"Atom Sizes: {size_atoms}")
 ot_method = 'ppa'       # either `ppa` or `b-admm`
 gamma = 1e-1            
