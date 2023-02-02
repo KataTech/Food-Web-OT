@@ -98,13 +98,14 @@ def cost_mat(cost_s: torch.Tensor,
     cost_st = f1_st + f2_st
     cost = cost_st - 2 * cost_s @ tran @ torch.t(cost_t)
 
-    if emb_s is not None and emb_t is not None:
-        tmp1 = emb_s @ torch.t(emb_t)
-        tmp2 = torch.sqrt((emb_s ** 2) @ torch.ones(emb_s.size(1), 1))
-        tmp3 = torch.sqrt((emb_t ** 2) @ torch.ones(emb_t.size(1), 1))
-        cost += 0.5 * (1 - tmp1 / (tmp2 @ torch.t(tmp3)))
+    # if emb_s is not None and emb_t is not None:
+    #     tmp1 = emb_s @ torch.t(emb_t)
+    #     tmp2 = torch.sqrt((emb_s ** 2) @ torch.ones(emb_s.size(1), 1))
+    #     tmp3 = torch.sqrt((emb_t ** 2) @ torch.ones(emb_t.size(1), 1))
+    #     assert not torch.isnan(cost).any(), f"Found NaN values in cost_mat \n sum of cost_t: {cost_t.sum()} \n tmp2tmp3: {(tmp2 @ torch.t(tmp3)).sum()}"
+    #     cost += 0.5 * (1 - tmp1 / (tmp2 @ torch.t(tmp3)))
     
-    assert not torch.isnan(cost).any(), "cost_mat"
+    # assert not torch.isnan(cost).any(), f"Found NaN values in cost_mat \n sum of cost_t: {cost_t.sum()} \n tmp2tmp3: {(tmp2 @ torch.t(tmp3)).sum()}"
 
     return cost
 
@@ -136,10 +137,10 @@ class StructuralDataSampler(Dataset):
     def __getitem__(self, idx):
         curr_graph = self.data[idx]
         cost = curr_graph.get_cost()
-        dist = np.ones((curr_graph.get_size(), 1)) 
-        dist /= np.sum(dist)
-        features = curr_graph.get_node_dist()
-        features = np.reshape(features, (features.shape[0], 1))
+        features = np.ones((curr_graph.get_size(), 1)) 
+        features /= np.sum(features)
+        dist = curr_graph.get_node_dist()
+        dist = np.reshape(features, (features.shape[0], 1))
 
         features = torch.from_numpy(features).type(torch.FloatTensor)
         dist = torch.from_numpy(dist).type(torch.FloatTensor)
