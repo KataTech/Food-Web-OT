@@ -4,8 +4,10 @@ This python file contains useful methods and classes for processing data
 
 import numpy as np 
 import networkx as nx
+import random
 import pickle, os
 from collections import defaultdict
+from .ot_gromov import entropic_baycenter
 
 # Visualization libraries primarily for statistics of GraphOT_Factory
 import matplotlib.pyplot as plt
@@ -149,6 +151,12 @@ class GraphOT:
         """
         return np.copy(self.node_dist), np.copy(self.cost)
         
+    def get_size(self): 
+        """
+        Returns the number of nodes of this GraphOT
+        """
+        return self.graph.number_of_nodes()
+
 class GraphOT_Factory: 
     """
     Generates and maintains a set of GraphOT objects. Contains
@@ -362,10 +370,17 @@ class GraphOT_Factory:
         
         return info
 
-    #TODO: Implement a filter operation that takes into account 
-    # some function by which to filter, some function by which to 
-    # retrieve certain variable values from the GraphOT / NetworkX,
-    # the type of objects to filter by, and outputs a new GraphOT_Factory
+    def get_ot_graph(self, name: str): 
+        """
+        Return the graphOT graph corresponding to the specified name
+        """
+        return self.ot_factory[name]
+    
+    def get_nx_graph(self, name: str): 
+        """
+        Return the networkx graph corresponding to the specified name
+        """
+        return self.factory[name]
 
     def get_probs(self) -> list: 
         """
@@ -385,53 +400,74 @@ class GraphOT_Factory:
             costs.append(self.ot_factory[name].get_cost())
         return costs
 
-    # # TODO: Fix the barycenter implementation
-    # def barycenter(self, size: int, epsilon=0.01, mode="GW", save=False, save_path=None, sample:int=None):
-    #     """
-    #     Compute the barycenter of the current GraphOT_Factory
+    def random_sample(self, sample_size: int, seed: int=None): 
+        """
+        Return a random subset of this GraphOT_Factory with the specified size
 
-    #     Parameters
-    #     ----------
-    #     size : int
-    #         The size of the barycenter graph
-    #     epsilon : float
-    #         The regularization constant for entropic-barycenter 
-    #         computations.
-    #     mode : str
-    #         The type of barycenter to compute. Valid strings are 
-    #         "GW" and "FGW" which correspond to gromov-wasserstein 
-    #         and fused gromov-wasserstein respectively
-    #     save : bool 
-    #         Whether to save the computed instances of the 
-    #         summary call
-    #     save_path : str
-    #         The path for saving the computed barycenter
-    #     sample : int 
-    #         If not None, then sample a subset of the samples to work with
+        Parameters
+        ----------
+        sample_size : int 
+            The size of the random subset of this GraphOT_Factory
+        seed : int 
+            If provided, set to this seed for randomization to be reproducible
+        """
+        if seed is not None: 
+            random.seed(seed)
+        random_dict = dict(random.sample(self.factory.items(), sample_size))
+        random_factory = GraphOT_Factory(random_dict)
+        return random_factory
 
-    #     Returns 
-    #     ----------
-    #     barycenter : array-like, shape (`N`, `N`)
-    #         The similarity matrix in the barycenter space. 
-    #     """ 
+    def to_list(self): 
+        """
+        Return a list of the GraphOT_Factory OT_graphs with corresponding 
+        order to the names attribute
+        """
+        lst = []
+        for name in self.names: 
+            lst.append(self.get_ot_graph(name))
+        return lst
 
-    #     if sample is not None: 
-    #         random_dict = dict(random.sample(self.factory.items(), sample))
-    #         random_factory = GraphOT_Factory(random_dict)
-    #         random_factory.save("scratch/random_factory.pkl")
-    #         return random_factory.barycenter(size, save=save, save_path=save_path)
+    # TODO: Fix the barycenter implementation
+    def barycenter(self, size: int, epsilon=0.01, mode="GW", save=False, save_path=None):
+        """
+        Compute the barycenter of the current GraphOT_Factory
 
-    #     if mode == "GW": 
-    #         probs = self.get_probs()
-    #         costs = self.get_costs()
-    #         weight_baryc = np.array([np.ones(size) / size]).ravel()
-    #         weight_graph = np.array([np.ones(self.num_graphs) / self.num_graphs]).ravel()
-    #         bary = entropic_baycenter(size, costs, probs, weight_baryc, weight_graph, epsilon=epsilon)
-    #         # bary = gromov_barycenters(self.num_graphs, costs, probs, weight_baryc, weight_graph, epsilon)
-    #     if save and save_path is not None: 
-    #         with open(save_path, "wb") as f: 
-    #             pickle.dump(bary, f)
-    #     return bary
+        Parameters
+        ----------
+        size : int
+            The size of the barycenter graph
+        epsilon : float
+            The regularization constant for entropic-barycenter 
+            computations.
+        mode : str
+            The type of barycenter to compute. Valid strings are 
+            "GW" and "FGW" which correspond to gromov-wasserstein 
+            and fused gromov-wasserstein respectively
+        save : bool 
+            Whether to save the computed instances of the 
+            summary call
+        save_path : str
+            The path for saving the computed barycenter
 
-       
+        Returns 
+        ----------
+        barycenter : array-like, shape (`N`, `N`)
+            The similarity matrix in the barycenter space. 
+        """ 
+
+        if mode == "GW": 
+            probs = self.get_probs()
+            costs = self.get_costs()
+            weight_baryc = np.array([np.ones(size) / size]).ravel()
+            weight_graph = np.array([np.ones(self.num_graphs) / self.num_graphs]).ravel()
+            bary = entropic_baycenter(size, costs, probs, weight_baryc, weight_graph, epsilon=epsilon)
+            # bary = gromov_barycenters(self.num_graphs, costs, probs, weight_baryc, weight_graph, epsilon)
+        if save and save_path is not None: 
+            with open(save_path, "wb") as f: 
+                pickle.dump(bary, f)
+        return bary
             
+#TODO: Implement a filter operation that takes into account 
+    # some function by which to filter, some function by which to 
+    # retrieve certain variable values from the GraphOT / NetworkX,
+    # the type of objects to filter by, and outputs a new GraphOT_Factory

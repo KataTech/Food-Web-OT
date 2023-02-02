@@ -20,11 +20,19 @@ def ot_fgw(cost_s: torch.Tensor,
            num_layer: int,
            emb_s: torch.Tensor = None,
            emb_t: torch.Tensor = None):
-    # tran = p_s @ torch.t(p_t)
-    tran = torch.rand(p_s.size(), p_t.size())
+    tran = p_s @ torch.t(p_t)
+    # tran = torch.rand(p_s.size(dim=0), p_t.size(dim=0))
     if ot_method == 'ppa':
         dual = torch.ones(p_s.size()) / p_s.size(0)
-        for _ in range(num_layer):
+        for i in range(num_layer):
+            # print(f"Iteration {i}...")
+            # assert not torch.isnan(cost_s).any(), "cost_s in OT_FGW"
+            # assert not torch.isnan(cost_t).any(), "cost_t in OT_FGW"
+            # assert not torch.isnan(p_s).any(), "p_s in OT_FGW"
+            # assert not torch.isnan(p_t).any(), "p_t in OT_FGW"
+            # assert not torch.isnan(tran).any(), "tran in OT_FGW"
+            # assert not torch.isnan(emb_s).any(), "emb_s in OT_FGW"
+            # assert not torch.isnan(emb_t).any(), "emb_t in OT_FGW"
             cost = cost_mat(cost_s, cost_t, p_s, p_t, tran, emb_s, emb_t)
             # cost /= torch.max(cost)
             kernel = torch.exp(-cost / gamma) * tran
@@ -33,6 +41,7 @@ def ot_fgw(cost_s: torch.Tensor,
                 dual = p_s / (kernel @ b)
                 b = p_t / (torch.t(kernel) @ dual)
             tran = (dual @ torch.t(b)) * kernel
+            # assert not torch.isnan(tran).any(), "tran in OT_FGW"
     elif ot_method == 'b-admm':
         all1_s = torch.ones(p_s.size())
         all1_t = torch.ones(p_t.size())
@@ -50,6 +59,10 @@ def ot_fgw(cost_s: torch.Tensor,
             a = p_s / (kernel_t @ all1_t)
             tran = (a @ torch.t(all1_t)) * kernel_t
     d_gw = (cost_mat(cost_s, cost_t, p_s, p_t, tran, emb_s, emb_t) * tran).sum()
+
+    assert not torch.isnan(d_gw).any(), "d_gw in OT_FGW"
+    assert not torch.isnan(tran).any(), "tran in OT_FGW"
+
     return d_gw, tran
 
 def cost_mat(cost_s: torch.Tensor,
@@ -80,8 +93,8 @@ def cost_mat(cost_s: torch.Tensor,
     Returns:
         cost: (ns, nt) matrix (torch tensor), representing the cost matrix conditioned on current optimal transport
     """
-    f1_st = ((cost_s.multiply(cost_s)) @ p_s).repeat(1, tran.size(1))
-    f2_st = (torch.t(p_t) @ torch.t(cost_t.multiply(cost_t))).repeat(tran.size(0), 1)
+    f1_st = ((cost_s ** 2) @ p_s).repeat(1, tran.size(1))
+    f2_st = (torch.t(p_t) @ torch.t((cost_t ** 2))).repeat(tran.size(0), 1)
     cost_st = f1_st + f2_st
     cost = cost_st - 2 * cost_s @ tran @ torch.t(cost_t)
 
@@ -90,6 +103,8 @@ def cost_mat(cost_s: torch.Tensor,
         tmp2 = torch.sqrt((emb_s ** 2) @ torch.ones(emb_s.size(1), 1))
         tmp3 = torch.sqrt((emb_t ** 2) @ torch.ones(emb_t.size(1), 1))
         cost += 0.5 * (1 - tmp1 / (tmp2 @ torch.t(tmp3)))
+    
+    assert not torch.isnan(cost).any(), "cost_mat"
 
     return cost
 
@@ -105,54 +120,43 @@ def fgwd(graph1, embedding1, prob1,
 class StructuralDataSampler(Dataset):
     """Sampling point sets via minbatch"""
 
-    def __init__(self, data: List):
+    def __init__(self, data: List, labels: List):
         """
-        Args:
-            data: a list of data include [[edges, #nodes, (optional label)], ...]
+        Parameters
+        ----------
+        data : list 
+            A list of GraphOT objects 
         """
         self.data = data
+        self.labels = labels
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        edges = self.data[idx][0]
-        num_nodes = self.data[idx][1]
-        adj = np.zeros((num_nodes, num_nodes))
-        dist = np.ones((num_nodes, 1))
+        curr_graph = self.data[idx]
+        cost = curr_graph.get_cost()
+        dist = np.ones((curr_graph.get_size(), 1)) 
         dist /= np.sum(dist)
-        for edge in edges:
-            src = edge[0]
-            dst = edge[1]
-            adj[src, dst] = 1
-
-        if len(self.data[idx]) == 3:
-            features = np.ones((num_nodes, 1))
-            for edge in edges:
-                src = edge[0]
-                dst = edge[1]
-                features[src, 0] += 1
-                features[dst, 0] += 1
-            features /= np.sum(features)
-        else:
-            features = self.data[idx][2]
+        features = curr_graph.get_node_dist()
+        features = np.reshape(features, (features.shape[0], 1))
 
         features = torch.from_numpy(features).type(torch.FloatTensor)
         dist = torch.from_numpy(dist).type(torch.FloatTensor)
-        adj = torch.from_numpy(adj).type(torch.FloatTensor)
-        label = torch.LongTensor([self.data[idx][-1]])
+        cost = torch.from_numpy(cost).type(torch.FloatTensor)
+        label = torch.LongTensor([self.labels[idx]])
+        
+        return [cost, dist, features, label]
 
-        return [adj, dist, features, label]
-
-class GWF(nn.Module): 
+class FGWF(nn.Module): 
     """
     A PyTorch implementation of the Gromov-Wasserstein factorization model. 
     Code largely adapted from Hongteng Xu's Relational-Factorization-Model repository. 
 
     Source: https://github.com/HongtengXu/Relational-Factorization-Model
     """
-    def __init__(self, num_samples: int, size_atoms: int, ot_method: str="entropic", 
-                 gamma: float=1e-1, gwb_layers: int=5, ot_layers: int=5):
+    def __init__(self, num_samples: int, size_atoms: int, ot_method: str="ppa", 
+                 dim_embedding: int = 1, gamma: float=1e-1, gwb_layers: int=5, ot_layers: int=5):
         """
         Initialize an instance of a Gromov-Wasserstein Factorization (GWF) object. 
 
@@ -161,10 +165,11 @@ class GWF(nn.Module):
         num_samples : int 
             The number of samples to draw for each training iteration 
         """
-        super(GWF, self).__init__()
+        super(FGWF, self).__init__()
         self.num_samples    = num_samples
         self.size_atoms     = size_atoms
         self.num_atoms      = len(size_atoms)
+        self.dim_embedding = dim_embedding
         self.ot_method      = ot_method
         self.gwb_layers     = gwb_layers
         self.ot_layers      = ot_layers
@@ -182,7 +187,7 @@ class GWF(nn.Module):
             # initialize atom to be a matrix (graph) of specified size
             atom = nn.Parameter(torch.randn(self.size_atoms[k], self.size_atoms[k]))
             # initialize a random embedding per each atom
-            embedding = nn.Parameter(torch.randn(self.size_atoms[k], 1) / 1)
+            embedding = nn.Parameter(torch.randn(self.size_atoms[k], self.dim_embedding) / self.dim_embedding)
             # assume that atoms have uniform distribution
             dist = torch.ones(self.size_atoms[k], 1) / self.size_atoms[k]
             # append the computed values to the corresponding storages
@@ -261,6 +266,7 @@ class GWF(nn.Module):
 
 def train_usl(model,
               database,
+              labels,
               size_batch: int = 16,
               epochs: int = 10,
               lr: float = 1e-1,
@@ -270,12 +276,13 @@ def train_usl(model,
               mode: str = 'fit',
               visualize_prefix: str = None, 
               verbose = False,
-              save = False):
+              save = False, 
+              label_keys = None):
     """
     training a FGWF model
     Args:
         model: a FGWF model
-        database: a list of data, each element is a list representing [cost, distriubtion, feature, label]
+        database: a list of data, each element is a list representing [cost, distribution, feature, label]
         size_batch: the size of batch, deciding the frequency of backpropagation
         epochs: the number epochs
         lr: learning rate
@@ -286,6 +293,7 @@ def train_usl(model,
         visualize_prefix: display learning result after each epoch or not
         verbose: display messages or not
         save: whether or not to save the image figures
+        label_keys: a mapping from integer class to string representation
     """
     if mode == 'fit':
         optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -295,12 +303,11 @@ def train_usl(model,
             if n > 0:
                 param.requires_grad = False
             n += 1
-
         # only update partial model's parameters
         optimizer = optim.Adam([list(model.parameters())[0]], lr=lr, weight_decay=weight_decay)
     model.train()
 
-    data_sampler = StructuralDataSampler(database)
+    data_sampler = StructuralDataSampler(database, labels)
     num_samples = data_sampler.__len__()
     index_samples = list(range(num_samples))
     index_atoms = list(range(model.num_atoms))
@@ -344,7 +351,9 @@ def train_usl(model,
             if zeta is not None and mode == 'fit':
                 random.shuffle(index_atoms)
                 graph1 = model.output_atoms(index_atoms[0])
+                
                 emb1 = model.embeddings[index_atoms[0]]
+                
                 p1 = model.ps[index_atoms[0]]
 
                 graph2 = model.output_atoms(index_atoms[1])
@@ -354,6 +363,7 @@ def train_usl(model,
                 _, tran12 = ot_fgw(graph1.data, graph2.data, p1, p2,
                                    model.ot_method, model.gamma, model.ot_layers,
                                    emb1.data, emb2.data)
+
                 reg = fgwd(graph1, emb1, p1, graph2, emb2, p2, tran12)
 
                 reg_total += zeta * reg
@@ -392,8 +402,8 @@ def train_usl(model,
             index = list(range(num_samples))
             labels = []
             for idx in index:
-                labels.append(data_sampler.data[idx][-1])
-            labels = np.asarray(labels)
+                labels.append(data_sampler[idx][-1].numpy()[0])
+            labels = np.array(labels)
             num_classes = int(np.max(labels) + 1)
 
             plt.figure(figsize=(6, 6))
@@ -401,7 +411,7 @@ def train_usl(model,
                 plt.scatter(embeddings[labels == i, 0],
                             embeddings[labels == i, 1],
                             s=4,
-                            label='class {}'.format(i + 1))
+                            label=label_keys[i])
             plt.legend()
             if verbose: 
                 print('{}_usl_tsne_{}_{}.pdf'.format(visualize_prefix, mode, epoch+1))
