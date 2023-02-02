@@ -415,9 +415,9 @@ def train_usl(model,
                             label=label_keys[i])
             plt.legend()
             if verbose: 
-                print('{}_usl_tsne_{}_{}.pdf'.format(visualize_prefix, mode, epoch+1))
+                print('{}_tsne_{}.pdf'.format(visualize_prefix, epoch+1))
             if save: 
-                plt.savefig('{}_usl_tsne_{}_{}.pdf'.format(visualize_prefix, mode, epoch+1))
+                plt.savefig('{}_tsne_{}.pdf'.format(visualize_prefix, epoch+1))
             plt.close()
     return best_model
 

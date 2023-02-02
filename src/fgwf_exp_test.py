@@ -5,16 +5,19 @@ and Graph Clustering.
 
 import model.fused_gwf as FGWF
 import numpy as np
+import pickle
 import networkx as nx
-import os, pickle
+import os
 from model.fused_gwf import StructuralDataSampler
 from model.graph import GraphOT_Factory
 from sklearn.cluster import KMeans
 
+np.random.seed(25)
+
 # TODO: SET EXPERIMENT RESULT DIR
 RESULT_DIR = "scratch/results"
 MODEL_DIR = "scratch/models"
-NAME = "test"
+NAME = "cycle_star"
 
 # TODO: SET DATA PATH
 data_path = "data/processed"
@@ -22,6 +25,7 @@ data_path = "data/processed"
 # TODO: SET MODEL PARAMETERS
 num_atoms = 20
 size_atoms = num_atoms * [np.random.randint(20, 100)]
+print(f"Atom Sizes: {size_atoms}")
 ot_method = 'ppa'       # either `ppa` or `b-admm`
 gamma = 1e-1            
 gwb_layers = 10
@@ -37,7 +41,6 @@ zeta = None             # the weight of diversity regularizer
 mode = 'fit'            
 
 # generate 25 random cycles and 25 random path graphs 
-np.random.seed(25)
 graph_dict = {}
 labels = []
 labels_real = []
@@ -87,6 +90,14 @@ best_acc = max([1 - np.sum(np.abs(pred - labels)) / len(graph_data),
                 1 - np.sum(np.abs((1 - pred) - labels)) / len(graph_data)])
 print(f"Best Accuracy: {best_acc}")
 
-FGWF.save_model(model, os.path.join(MODEL_DIR, '{}_{}_fgwf.pkl'.format(NAME, mode)))
+# save the resulting atoms 
+atom_dict = {}
+for i in range(num_atoms):
+    atom_dict[i] = (size_atoms[i], model.output_atoms(i).cpu().data.numpy())
+with open(NAME+"_atom.pkl", "wb") as f: 
+    pickle.dump(atom_dict, f)
+
+# save the model itself
+FGWF.save_model(model, os.path.join(MODEL_DIR, '{}_fgwf.pkl'.format(NAME)))
 
     

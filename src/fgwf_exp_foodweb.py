@@ -5,10 +5,14 @@ and Graph Clustering.
 
 import model.fused_gwf as FGWF
 import numpy as np
+import seaborn as sns
 import os, pickle
 from model.fused_gwf import StructuralDataSampler
 from model.graph import GraphOT_Factory
 from sklearn.cluster import KMeans
+from sklearn.metrics import confusion_matrix
+
+np.random.seed(25)
 
 # TODO: SET EXPERIMENT RESULT DIR
 RESULT_DIR = "scratch/results"
@@ -17,8 +21,9 @@ data_path = "data/processed"
 NAME = "food_web"
 
 # TODO: SET MODEL PARAMETERS
-num_atoms = 20
+num_atoms = 50
 size_atoms = num_atoms * [np.random.randint(20, 70)]
+print(f"Atom Sizes: {size_atoms}")
 ot_method = 'ppa'       # either `ppa` or `b-admm`
 gamma = 1e-1            
 gwb_layers = 5
@@ -92,10 +97,23 @@ features = model.weights.cpu().data.numpy()
 embeddings = features.T
 kmeans = KMeans(init='k-means++', n_clusters=2, n_init=10)
 pred = kmeans.fit_predict(embeddings)
-best_acc = max([1 - np.sum(np.abs(pred - labels)) / len(graph_data),
-                1 - np.sum(np.abs((1 - pred) - labels)) / len(graph_data)])
-print(f"Best Accuracy: {best_acc}")
 
-FGWF.save_model(model, os.path.join(MODEL_DIR, '{}_{}_fgwf.pkl'.format(NAME, mode)))
+# measure the predictive accuracy and save the confusion matrix plot
+conf_mat = confusion_matrix(pred, labels)
+acc = np.sum(conf_mat.diagonal()) / np.sum(conf_mat)
+print('Overall accuracy: {} %'.format(acc*100))
+conf_plot = sns.heatmap(conf_mat/np.sum(conf_mat), annot=True, 
+            fmt='.2%')
+conf_plot.get_figure().savefig(os.path.join(RESULT_DIR, '{}_conf.png'.format(NAME)))
+
+# save the resulting atoms 
+atom_dict = {}
+for i in range(num_atoms):
+    atom_dict[i] = (size_atoms[i], model.output_atoms(i).cpu().data.numpy())
+with open(NAME+"_atom.pkl", "wb") as f: 
+    pickle.dump(atom_dict, f)
+
+# save the model itself
+FGWF.save_model(model, os.path.join(MODEL_DIR, '{}_fgwf.pkl'.format(NAME)))
 
     
