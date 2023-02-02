@@ -43,13 +43,14 @@ def base_initialization():
     location2graph = {}
     locations = species_location.columns
     for location in locations: 
+        striped_location = location.strip()
         # select only species that exist within a certain location
         mask = species_location.loc[:, location] == 1
         species = species_location[mask].index
         # the directed graph is generated using transposed 
         # adjacency matrix because the original matrix has predators across 
         # the columns and preys across the rows
-        location2graph[location] = nx.DiGraph(prey_predator.loc[species, species].T)
+        location2graph[striped_location] = nx.DiGraph(prey_predator.loc[species, species].T)
 
     # save the location_to_nx_graph mapping
     filename_pkl = os.path.join('data/processed/foodweb_loc2nxgraph.pkl')
@@ -63,7 +64,8 @@ def biome_initialization():
     biome_df = pd.read_csv("data/Biome.csv")
     loc2biome = {}
     for name in biome_df.Community: 
-        loc2biome[name] = biome_df[biome_df.Community == name].WWF_MHTNAM.values[0]
+        striped_name = name.strip()
+        loc2biome[striped_name] = biome_df[biome_df.Community == name].WWF_MHTNAM.values[0].strip()
     # save the name2biome dict
     with open("data/processed/foodweb_loc2biome.pkl", 'wb') as f:
         pickle.dump(loc2biome, f)
