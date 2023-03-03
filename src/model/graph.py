@@ -126,7 +126,7 @@ class GraphOT:
             c = nx.floyd_warshall_numpy(self.graph)
             masked_c = np.ma.array(c, mask=~np.isfinite(c))
             if no_inf: 
-                c[c == np.inf] = 2 * np.max(masked_c)
+                c[c == np.inf] = 10000
             return c
         
         # if `cost_method` is not anticipated, return the shortest_path method result
