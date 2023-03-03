@@ -47,12 +47,12 @@ colors = ["blue", "orange", "green", "red", "purple"]
 # title = "Star Graphs (Fixed Init)"
 # print("\nProcessing star graphs ------------------------")
 # log = gwd_growth_experiment(nx.star_graph, base_sizes, step, numComparisons, title, colors, random_init=False,
-#                             verbose=1, save_transport=True, save_fig=True, save_log=True, save_path=SAVE_PATH, iter=10)
+# #                             verbose=1, save_transport=True, save_fig=True, save_log=True, save_path=SAVE_PATH, iter=10)
 
-title = "Barbell Graphs"
-print("Processing barbell graphs ----------------------")
-log = gwd_growth_experiment(lambda x: nx.barbell_graph(x, x), base_sizes, step, numComparisons, title, colors,
-                            verbose=1, save_transport=True, save_fig=True, save_log=True, save_path=SAVE_PATH, iter=10)
+# title = "Barbell Graphs"
+# print("Processing barbell graphs ----------------------")
+# log = gwd_growth_experiment(lambda x: nx.barbell_graph(x, x), base_sizes, step, numComparisons, title, colors,
+#                             verbose=1, save_transport=True, save_fig=True, save_log=True, save_path=SAVE_PATH, iter=10)
 
 title = "2-D Grid Graphs"
 print("\nProcessing 2-D grid graphs ------------------------")
