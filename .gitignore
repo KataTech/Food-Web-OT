@@ -6,3 +6,6 @@
 
 # Ignore the data folder
 data
+
+# Ignore any notebooks provided by annie 
+notebooks/annie
